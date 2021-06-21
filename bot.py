@@ -13,7 +13,6 @@ import asyncio
 from asyncio.locks import Event
 import gspread
 import datetime
-import rate_artifact as ra
 from dotenv import load_dotenv
 
 #loading .env
