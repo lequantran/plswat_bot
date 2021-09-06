@@ -1,19 +1,25 @@
 # -*- coding: utf-8 -*-
 '''
 Created on 15.09.2020
-Version 1.0.4 (12.06.21)
+Version 1.2.0 (12.07.21)
 @author: Creki
 '''
 
 import os
 import discord
 from discord.ext import commands
-import random
-import asyncio
-from asyncio.locks import Event
-import gspread
-import datetime
+from pathlib import Path
 from dotenv import load_dotenv
+import random
+import gspread
+import sqlite3
+import datetime
+import db_functions as dbf
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+import requests
+from io import BytesIO
+
+DEVELOPMENT=False
 
 #loading .env
 load_dotenv()
@@ -21,67 +27,51 @@ env_path = Path('.')/'.env'
 load_dotenv(dotenv_path=env_path)
 
 #Constants
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-GOOGLE_EXCEL_SHEET = os.getenv('GOOGLE_EXCEL_SHEET')
-BOT_SPAM_CHANNEL_ID = int(os.getenv('BOT_SPAM_CHANNEL_ID'))
-ROLE_REACTION_MESSAGE_ID = int(os.getenv('ROLE_REACTION_MESSAGE_ID'))
-AUEL_ID = int(os.getenv('AUEL_ID'))
-FRIEDE_ID = int(os.getenv('FRIEDE_ID'))
+if DEVELOPMENT:
+    PLSWAT_BOT_TOKEN = os.getenv('TEST_BOT_TOKEN')
+    BOT_CHANNEL_ID = int(os.getenv('DEVELOPMENT_CHANNEL_ID'))
+    ROLE_CHANNEL_ID = int(os.getenv('DEVELOPMENT_CHANNEL_ID'))
+    WELCOME_CHANNEL_ID = int(os.getenv('DEVELOPMENT_CHANNEL_ID'))
+    INFO_CHANNEL_ID = int(os.getenv('DEVELOPMENT_CHANNEL_ID'))
+else:
+    PLSWAT_BOT_TOKEN = os.getenv('PLSWAT_BOT_TOKEN')
+    BOT_CHANNEL_ID = int(os.getenv('BOT_CHANNEL_ID'))
+    ROLE_CHANNEL_ID = int(os.getenv('ROLE_CHANNEL_ID'))
+    WELCOME_CHANNEL_ID = int(os.getenv('WELCOME_CHANNEL_ID'))
+    INFO_CHANNEL_ID = int(os.getenv('INFO_CHANNEL_ID'))
+    
+EXCEL_CREDENTIALS = os.getenv('EXCEL_CREDENTIALS')
+EXCEL_SHEET_KEY = os.getenv('EXCEL_SHEET_KEY')
+ADMIN_ID = int(os.getenv('ADMIN_ID'))
+AUEL_ID = int(os.getenv('ADMIN_ID'))
 CARI_ID = int(os.getenv('CARI_ID'))
-CHI_ID = int(os.getenv('CHI_ID'))
+FRIEDE_ID = int(os.getenv('FRIEDE_ID'))
 SALTY_ID = int(os.getenv('SALTY_ID'))
+CHI_ID = int(os.getenv('CHI_ID'))
 DENNIS_ID = int(os.getenv('DENNIS_ID'))
-LEIF_ID = int(os.getenv('LEIF_ID'))
 AKKO_ID = int(os.getenv('AKKO_ID'))
+LEIF_ID = int(os.getenv('LEIF_ID'))
+ROLE_MESSAGE_ID = int(os.getenv('ROLE_MESSAGE_ID'))
 
 
-gc = gspread.service_account(filename='plswat_credentials.json')
-sh = gc.open_by_key('GOOGLE_EXCEL_SHEET')
-
+#google excel 
+gc = gspread.service_account(filename=EXCEL_CREDENTIALS)
+sh = gc.open_by_key(EXCEL_SHEET_KEY)
 loot_sheet = sh.sheet1
 
+#discord intents
 intents = discord.Intents.default()
 intents.members = True
 client = commands.Bot(command_prefix = '.', intents=intents)
 
-cari_quotes = [
-    'Cari: "Ey Schlitzi, wenn du mich mehr heilen laesst, warum bist du dann immer noch unter mit?"',
-    'Cari: "Auli, du hast ein gruenes Icon."\nAuel: "Was ist gruen und rot gemischt?"\nCari: "HURENSOHN?"',
-    'Caripapa erneuert das Silikon in der Kueche.\nCaripapa: "Habt ihr eine Maschine?"\nCari: "Maschine? Was ist eine Maschine?"\nFriede: "DENNIS!"'
-    ]
+#SQLite Database
+conn = sqlite3.connect("plswat_database.db")
+sql_cursor = conn.cursor()
 
-salty_quotes = [
-    'Salty: "Nein ich brauch dich Auli. <:FeelsTsundereMan:592629004633374739> "',
-    'Salty: "Sie (Cari) ist es nicht gewohnt mit \'nem gutem Heiler (Auli) zusammen zu spielen."',
-    
-    ]
-
-auel_quotes = [
-    'Auel: "Ah~" <:AiGasm:711167172507992155>',
-    'Auel: "Ah~" <:gasm:576325086303485983> ',
-    'Auel: "Ah~" <:araragi:582125777278205972> ',
-    'Auel: "Passt auf Feuerball auf!" - Auel stirbt an Feuerball'
-]
-
-friede_quotes = [
-    'Friede: "Ich bin gut in Videospielen" - laeuft 2 Sekunden spaeter runter '
-]
-
-dennis_quotes = [
-    'Dennis: "Wie ist das nochmal bei Omega-M und Omega-Respect?"'
-    ]
-    
-uwu_kill = [
-    'https://www.youtube.com/watch?v=fDywcPePe20&feature=youtu.be <:ShibaCool:689471812551442515>',
-    'https://www.youtube.com/watch?v=m5WiDjd9zCI&feature=youtu.be',
-    'https://discordapp.com/channels/550014264262262804/550769119302254602/761672877258309632'
-    ]
 
 emojis = ['🗡️', '🧢', '👕', '🧤', '🩲', '👖', '👢', '👂', '👔', '💫', '💍']
 
-static_member_id = [AULI_ID, FRIEDE_ID, CARI_ID, CHI_ID,
-                    SALTY_ID, DENNIS_ID, LEIF_IDF_ID, AKKO_ID]
-					
+static_member_id = [AUEL_ID, CARI_ID, FRIEDE_ID, SALTY_ID, CHI_ID, DENNIS_ID, AKKO_ID, LEIF_ID]
 g_member = None
 altgear_message = None
 
@@ -145,7 +135,7 @@ async def maingear(ctx, *args):
         if name == 'auel' or name == 'god' or name == 'baka' or name == "fauli":
             print('in auel function')
             member = discord.utils.find(lambda m : m.id == AUEL_ID , ctx.channel.guild.members)
-            #member = client.get_user(AUEL_ID)
+            #member = client.get_user(281124450345156619)
             gear_need = loot_sheet.get('C4:P4')
         elif name == 'cari' or name == 'ente':
             member = discord.utils.find(lambda m : m.id == CARI_ID , ctx.channel.guild.members)
@@ -173,6 +163,9 @@ async def maingear(ctx, *args):
             member = None
         
         print(member)
+        
+        if DEVELOPMENT:
+            member = member = discord.utils.find(lambda m : m.id == ADMIN_ID , ctx.channel.guild.members)
         
         if member != None:
             embed = discord.Embed(title="{} Savage Need".format(member.display_name), color=0xff5d00)
@@ -217,7 +210,7 @@ async def altgear(ctx, *args):
                 gear_print = '*'
             embed.add_field(name=gear_name[0][i], value=gear_print, inline=True)        
         await ctx.send(embed=embed)  
-    if len(args) == 1:
+    elif len(args) == 1:
         name = args[0].lower()
         #print(name)
         if name == 'auel' or name == 'god' or name == 'baka' or name == "fauli":
@@ -247,6 +240,8 @@ async def altgear(ctx, *args):
         else:
             g_member = None
         
+        if DEVELOPMENT:
+            g_member = discord.utils.find(lambda m : m.id == ADMIN_ID , ctx.channel.guild.members)
             
         if g_member != None:
             embed = discord.Embed(title="{} 2nd Class Savage Gear".format(g_member.display_name))
@@ -269,7 +264,7 @@ async def altgear(ctx, *args):
         
     elif len(args) == 3:
         #-------------WIP! ID von allen plswat membern ---------------------
-        if ctx.author.id == AUEL_ID:
+        if ctx.author.id == ADMIN_ID:
             row = 0
             column = 0
             name = args[0].lower()
@@ -355,7 +350,9 @@ async def altgear_icon(ctx, *args):
         else:
             g_member = None
         
-            
+        if DEVELOPMENT:
+            g_member = discord.utils.find(lambda m : m.id == ADMIN_ID , ctx.channel.guild.members)
+                
         if g_member != None:
             embed = discord.Embed(title="{} 2nd Class Savage Gear".format(g_member.display_name))
             embed.set_thumbnail(url=g_member.avatar_url) 
@@ -433,10 +430,6 @@ async def altgear_swap(reaction, user):
             else:               
                 await channel.send('{} was added to your 2nd Class Savage Gear!'.format(gear_name), delete_after=3)
    
-    
-#@client.command()
-#async def loot(ctx, *args)
-
 
 @client.event
 async def on_ready():
@@ -455,74 +448,79 @@ async def baka(ctx):
     await ctx.send("Baka <:FeelsTsundereMan:592629004633374739> ")
 
 @client.command()
-async def plswat(ctx):
-    
-    if ctx.channel.id == BOT_SPAM_CHANNEL_ID:
+async def plswat(ctx): 
+    if ctx.channel.id == BOT_CHANNEL_ID:
         await ctx.message.delete()
         embed = discord.Embed(title="Available <:plswat:578994963644284929> Bot Commands", color=0x0560f5)
-        embed.add_field(name=".plswat", value="Available Commands", inline=False)
+        embed.add_field(name=".plswat", value="List available Commands", inline=False)
         embed.add_field(name=".ping", value="Ping of the Bot", inline=False)
-        embed.add_field(name=".friede", value="Random Friede Quotes", inline=False)
-        embed.add_field(name=".auel", value="Random Auel Ah's~", inline=False)
-        embed.add_field(name=".UWUKill", value="Youtube URL from <:plswat:578994963644284929> UWU Kill", inline=False)
+        embed.add_field(name=".role", value="Get an available Role. Only works in role channel.", inline=False)
+        embed.add_field(name=".baka", value="BAKA", inline=False)
+        embed.add_field(name=".choose (option1;option2;...)", value="Choose one of the options. Separator is a semicolon.", inline=False)
+        embed.add_field(name=".roll (optional=number)", value="Roll a random number. Max Number can be given.", inline=False)
+        embed.add_field(name=".baka", value="BAKA", inline=False)
+        embed.add_field(name=".wanted (@user)", value="Makes a wanted Poster of the User with a Random Bounty. STILL WIP", inline=False)
+        embed.add_field(name=".videos", value="Get a list of the available videos from :plswat:", inline=False)
         embed.add_field(name=".maingear (name)", value="Savage Gear Needs from plswat (Person)", inline=False)
         embed.add_field(name=".altgear ('name' got|need 'gearname')", value="Displays the 2nd Class needs from Savage.\nOptional: name got/need gearname to update the table e.g. '.altgear Auel got Chest'", inline=False)
-        embed.add_field(name=".currentgear (name)", value="WIP", inline=False)
+        embed.add_field(name=".altgear_icon (name)", value="Interactive Gearlist", inline=False)
         embed.add_field(name=".schedule", value="WIP in fucking Progress", inline=False)
         await ctx.send(embed=embed)
 
 @client.command()
-async def uwu(ctx, *args):
-    await ctx.message.delete()
-    if len(args) == 1:
-        if int(args[0]) < 4 and int(args[0]) > -1:
-            response = uwu_kill[int(args[0]) - 1]      
-            await ctx.send(response) 
+async def videos(ctx, *args):
+    if ctx.channel.id == BOT_CHANNEL_ID:
+        await ctx.message.delete()
+        if len(args) == 0:
+            videos = dbf.list_video_names()
+            title = 'Videos Names'
+            embed = discord.Embed(title=title, color=0xda680f)
+            embed.set_thumbnail(url=client.user.avatar_url)
+            embed.add_field(name='** **', value=videos, inline=False) 
+            await ctx.send(embed=embed)
+        elif len(args) == 1:
+            if args[0] == 'all':
+                videos = dbf.listvideos()
+                title = 'All Videos'     
+            else:      
+                videos = dbf.get_video(args[0])          
+                title = '{} Videos'.format(args[0])   
+            embed = discord.Embed(title=title, color=0xda680f)
+            embed.set_thumbnail(url=client.user.avatar_url)
+            for row in videos:     
+                embed.add_field(name=row[1], value=row[2], inline=False)   
+            await ctx.send(embed=embed)
         else:
-            await ctx.send('Number **{}** invalid. Please use .uwu for help!'.format(args[0]))
-    else:
-        await ctx.send('How to use the command:\n**.uwu (number)**\n with number = {1,2,3}')  
+            await ctx.send('Please input a Name to list the videos or use .videos to get available names.')
+        #error, help section, only form available names!
 
+@client.event
+async def on_member_join(member):
+    
+    channel = client.get_channel(WELCOME_CHANNEL_ID)
+    info_channel = client.get_channel(INFO_CHANNEL_ID)
+    
+    await channel.send('Willkommen {} auf dem <:plswat:578994963644284929> Server. \nBitte gehe in den {} channel um Infos über diesen Discord zu bekommen.'.format(member.mention, info_channel.mention))
 
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
-        
-    if message.content == '.auel':
-        await message.delete()
-        response = random.choice(auel_quotes)
-        await message.channel.send(response)
-        
-    if message.content == '.cari':
-        await message.delete()
-        response = random.choice(cari_quotes)
-        await message.channel.send(response)
-        
-    if message.content == '.salty':
-        await message.delete()
-        response = random.choice(salty_quotes)
-        await message.channel.send(response)
     
-    if message.content == '.dennis':
-        await message.delete()
-        response = random.choice(dennis_quotes)
-        await message.channel.send(response)      
-            
-    if message.content == '.friede':
-        await message.delete()
-        response = random.choice(friede_quotes)
-        await message.channel.send(response)   
-                
+    if not DEVELOPMENT:
+        if message.channel.id == ROLE_CHANNEL_ID:
+            await message.delete(delay=5)
+               
     await client.process_commands(message)  #to activate commands for messages
 
 @client.event  
 async def on_reaction_add(reaction, user):
+    bot_spam_channel_id = BOT_CHANNEL_ID
     static_member = False
     
     if user == client.user:
         return      
-    if reaction.message.channel.id == BOT_SPAM_CHANNEL_ID:
+    if reaction.message.channel.id == bot_spam_channel_id:
         if reaction.message.id == altgear_message.id:
             for i in static_member_id:
                 if i == user.id:
@@ -538,11 +536,12 @@ async def on_reaction_add(reaction, user):
     
 @client.event  
 async def on_reaction_remove(reaction, user):
+    bot_spam_channel_id = BOT_CHANNEL_ID
     static_member = False
     
     if user == client.user:
         return      
-    if reaction.message.channel.id == BOT_SPAM_CHANNEL_ID:
+    if reaction.message.channel.id == bot_spam_channel_id:
         if reaction.message.id == altgear_message.id:
             for i in static_member_id:
                 if i == user.id:
@@ -553,80 +552,113 @@ async def on_reaction_remove(reaction, user):
                 static_member = False
             else:
                 await reaction.message.channel.send('Only Static Members are allowed to update 2nd Class Savage Gear!')
-           
-@client.event
-async def on_raw_reaction_remove(payload):
-    
-    #hidden channel removing roles
-    message_id = payload.message_id
-    
-    if message_id == ROLE_REACTION_MESSAGE_ID:
-        guild_id = payload.guild_id
-        guild = discord.utils.find(lambda g: g.id == guild_id, client.guilds)
-        
-        if payload.emoji.name =='shibasmile':
-            role = discord.utils.get(guild.roles, name="Animal Crossing")
-        elif payload.emoji.name =='PsyWhat':
-            role = discord.utils.get(guild.roles, name="Pokemon")
-        elif payload.emoji.name =='GibSwitch':
-            role = discord.utils.get(guild.roles, name="Game News")
-        elif payload.emoji.name =='AiGasm':
-            role = discord.utils.get(guild.roles, name="One Piece") 
-        elif payload.emoji.name =='2bgasm':
-            role = discord.utils.get(guild.roles, name="SINoALICE")
-        elif payload.emoji.name =='ThiccBoi':
-            role = discord.utils.get(guild.roles, name="Fitness")
-        elif payload.emoji.name =='cuyigun':
-            role = discord.utils.get(guild.roles, name="Monster Hunter")
-        elif payload.emoji.name =='RooQuackSip':
-            role = discord.utils.get(guild.roles, name="Genshin Impact")
-        else:
-            role = None
-                               
-        if role is not None:
-            member = discord.utils.find(lambda m: m.id == payload.user_id, guild.members)
-            if member is not None:
-                await member.remove_roles(role)
-
-@client.event       
-async def on_raw_reaction_add(payload):
-  
-    #hidden channel giving roles
-    message_id = payload.message_id
-    
-    if message_id == ROLE_REACTION_MESSAGE_ID:
-        guild_id = payload.guild_id
-        guild = discord.utils.find(lambda g: g.id == guild_id, client.guilds)
-        
-        if payload.emoji.name =='shibasmile':
-            role = discord.utils.get(guild.roles, name="Animal Crossing")
-        elif payload.emoji.name =='PsyWhat':
-            role = discord.utils.get(guild.roles, name="Pokemon")
-        elif payload.emoji.name =='GibSwitch':
-            role = discord.utils.get(guild.roles, name="Game News")
-        elif payload.emoji.name =='AiGasm':
-            role = discord.utils.get(guild.roles, name="One Piece") 
-        elif payload.emoji.name =='2bgasm':
-            role = discord.utils.get(guild.roles, name="SINoALICE")
-        elif payload.emoji.name =='ThiccBoi':
-            role = discord.utils.get(guild.roles, name="Fitness")
-        elif payload.emoji.name =='cuyigun':
-            role = discord.utils.get(guild.roles, name="Monster Hunter")
-        elif payload.emoji.name =='RooQuackSip':
-            role = discord.utils.get(guild.roles, name="Genshin Impact")
-        else:
-            role = None
-                               
-        if role is not None:
-            member = discord.utils.find(lambda m: m.id == payload.user_id, guild.members)
-            if member is not None:
-                await member.add_roles(role)
-         
+                 
 @client.command()
 @commands.is_owner()
 async def close(ctx):
     await ctx.send('Bot is shutting down.')
     await ctx.bot.logout()
-         
+    
+@client.command()
+@commands.is_owner()
+async def listroles(ctx):
+    await ctx.message.delete()
+    if ctx.channel.id == ROLE_CHANNEL_ID: 
+        list_roles = dbf.listroles()
+        embed_list_roles = ''
+        embed = discord.Embed(title='Available Roles', color=0xda680f)
+        embed.set_thumbnail(url=client.user.avatar_url) 
+        for r in list_roles:
+            role = discord.utils.get(ctx.guild.roles, name=r[0])
+            if role != None:
+                embed_list_roles = role.mention
+                embed.add_field(name='** **', value=embed_list_roles, inline=True)    
+        await ctx.send(embed=embed)
+        await ctx.send('Please use \'**.role (Rolename)**\' to add or remove a role. \nAvailable Roles in the list above.')
+
+@client.command()
+async def role(ctx, * , args='empty'):
+    
+    if ctx.channel.id == ROLE_CHANNEL_ID: 
+        role_available = dbf.get_role(args)
+        if role_available == 1:
+            role = discord.utils.get(ctx.guild.roles, name=args)
+            if role is not None:
+                member = discord.utils.find(lambda m: m.id == ctx.author.id, ctx.guild.members)
+            else:
+                member = None
+                
+            if member is not None:
+                if role in ctx.author.roles:             
+                    await member.remove_roles(role)
+                    await ctx.send('Removed the {} Role.'.format(role), delete_after=5)
+                else:
+                    await member.add_roles(role)
+                    await ctx.send('Added the {} Role.'.format(role), delete_after=5)
         
-client.run('BOT_TOKEN')
+        elif role_available == -1:
+            await ctx.send('Role is not available.', delete_after=5)
+        else:
+            await ctx.send('Please read the Pin for available Roles.', delete_after=5)
+        
+        
+@client.command()   
+async def roll(ctx, max_num=100):
+    await ctx.send('You have rolled {}'.format(random.randrange(0, max_num+1)))
+    
+@client.command()
+async def choose(ctx, * , args='No Argument!'):  
+    error = 0
+    options = 0
+
+    if args != 'No Argument!':
+        options = args.split(';')
+    else:
+        error = -1
+        
+    if len(options) <= 1:
+        error = -1
+    else:
+        await ctx.send(options[random.randrange(0, len(options))])
+          
+    if error == -1:
+        await ctx.send('Please input 2 Options which are separated with ; \nExample: .choose Auli ist ein Gott; Auli ist kein Gott')
+            
+
+
+@client.command()
+async def wanted(ctx, *args):
+    
+    for m in ctx.message.mentions:
+        member = m
+        print(m)
+
+    #member = discord.utils.find(lambda m : m.id == name , ctx.channel.guild.members)
+    wanted = Image.open('pictures/new_wanted.jpg')
+    W, H = wanted.size
+    response = requests.get(member.avatar_url)
+    pfp = Image.open(BytesIO(response.content))
+    pfp = pfp.resize((1450,1000))
+
+    wanted.paste(pfp, (155,550))
+    
+    #wanted.save('wanted_edit.png', quality=95)
+    
+    wanted_edit = ImageDraw.Draw(wanted)
+    name = member.display_name
+    font = ImageFont.truetype('pictures/OnePiece.ttf', 250)
+    w, h = wanted_edit.textsize(name)
+    width = ((W-w-220)/2)
+    wanted_edit.text((width,1775), name , (86, 69, 41) , font=font)
+    berry = str(random.randrange(0, 3000000000)) + ' -'
+    #berry = '1 -'
+    width = ((W-w)/2)-600
+    wanted_edit.text((width,2020), berry , (86, 69, 41) , font=font)
+    wanted.save('wanted_edit.png')
+    await ctx.send(file=discord.File('wanted_edit.png'))
+    os.remove('wanted_edit.png')
+    
+    #font aendern, Zahlen und namen zentrieren
+    
+    
+client.run(PLSWAT_BOT_TOKEN)

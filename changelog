@@ -1,0 +1,53 @@
+Version 1.2.0 (12.07.21)
+-deleted artifactt rater bot
++added .env encryptment
++added DEVELOPMENT MODE
++added database
+-removed uwu command
++added videos command
++added database_install.py
++added old_functions.py
++fixed role command
+
+Version 1.1.0 (23.12.20)
+-deleted ratesubs commando
++added new artifact rater bot
+
+Version 1.0.7 (12.11.20)
++added rate commando
+
+Version 1.0.6 (10.11.20)
++added static_member_id
++added global altgear_message (for altgear_icon and altgear_swap and reacting to it)
++added on_reaction remove/add for altgear_icon (only static member allowed to update) (eventuell mit wait_for command austauchhen)
++merge altgear with altgear_icon
++added new artifact rater
+
+Version 1.0.5(27.10.20)
++updated altgear_swap
+-removed global client.altgear_message variable
+-removed global client.altgear_member variable
++added weapon to 2nd class (shifted options in altgear, altgear_icon)
+
+need to add channel id and message id check for reactions on altgear_icon
+need user id check!
+need to update .plswat help function
+still need error checks
+
+Version 1.0.4 (25.10.20)
++added altgear_swap (not finished, need to find a way to invoke custom commands inside commands)
++added altgear_icon (needs rename)
++modified on_reaction_add
++added on_reaction_remove
++added emoji enum
++added global client.altgear_message variable
++added global client.altgear_member variable
+
+
+Version 1.0.3 (03.10.20)
++added uwu command
++added baka command
++added uwu_kill dictionary
+
+Version 1.0.2 (27.09.20)
++added altgear command
